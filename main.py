@@ -1,26 +1,33 @@
-from qgate_sln_mlrun.qualityreport import QualityReport, ProjectDelete
-from qgate_sln_mlrun import output, setup
-import sys
 
+import os
+from auth.admin_manager import AdminLedger
+# Assuming a simple Flask setup for the prototype logic
+# If this was originally just a script, we wrap it to serve the web interface
+from flask import Flask, request, jsonify, send_from_directory
 
-if __name__ == '__main__':
-    stp = setup.Setup(["qgate-sln-mlrun-private.env", "qgate-sln-mlrun.env"])
-    out = output.Output(stp, ['./qgate_sln_mlrun/templates/qgt-mlrun.txt',
-                                   './qgate_sln_mlrun/templates/qgt-mlrun.html'])
-    report=QualityReport(stp,out)
+app = Flask(__name__, static_folder='frontend')
+ledger = AdminLedger()
 
-    delete_scenario = ProjectDelete.FULL_DELETE
-    test_scenario = False
+@app.route('/')
+def home():
+    """Serves the Sign-Up Page"""
+    return send_from_directory('frontend', 'signup.html')
 
-    # support parameters 'NoDelete' and 'Test' for switch-off the UC102: Delete project(s), ...
-    if len(sys.argv) > 1:
-        for arg in sys.argv[1:]:
-            arg = arg.lower()
-            if arg == "nodelete":
-                delete_scenario = ProjectDelete.NO_DELETE
-            if arg == "partdelete":
-                delete_scenario = ProjectDelete.PART_DELETE
-            elif arg == "test":
-                test_scenario=True
+@app.route('/api/signup', methods=['POST'])
+def signup():
+    """Handles the email submission"""
+    data = request.form
+    email = data.get('email')
+    
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+        
+    # Register in the secure Admin Ledger
+    ledger.register_user(email)
+    
+    return jsonify({"message": "Access requested successfully", "status": "pending"})
 
-    report.execute(delete_scenario, test_scenario)
+if __name__ == "__main__":
+    # Standard entry point
+    print("Launching QGate Interface...")
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
